@@ -1,0 +1,229 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Combined Graphs</title>
+    <!-- Include Chart.js, Chart.js datalabels plugin, and Dygraphs library -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-datalabels@2.0.0"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/dygraph/2.1.0/dygraph.min.js"></script>
+    <style>
+        body, html {
+            margin: 0;
+            padding: 0;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            height: 100vh; /* Make body take full viewport height */
+            overflow: hidden; /* Hide scroll bars */
+        }
+        #barChart {
+            width: 100%; /* Full width to maximize space usage */
+            max-width: 1000px; /* Limiting max width for better layout management */
+            height: 200px; /* Reduced height */
+            margin-top: 0px;
+            margin-bottom: 0px;
+        }
+        #dygraph-container {
+            transform: rotate(-90deg);
+            width: 300px; /* Reduced width */
+            height: 120%; /* Reduced height */
+            margin-top: 10px; /* Reduced margin to fit on one page */
+            overflow: hidden; /* Hide overflow */
+        }
+        #legend-container {
+            display: flex;
+            justify-content: center;
+            width: 100%;
+            margin-top: 10px;
+        }
+        .legend-entry {
+            margin: 0 10px; /* Space out legends a bit */
+            display: flex;
+            align-items: center;
+        }
+        .legend-color {
+            width: 20px;
+            height: 20px;
+            display: inline-block;
+            margin-right: 5px;
+        }
+    </style>
+</head>
+<body>
+    <!-- <h1>Bar Chart and Prediction Graph</h1> -->
+    <canvas id="barChart"></canvas>
+    <div id="dygraph-container"></div>
+    <div id="legend-container">
+        <div class="legend-entry">
+            <span class="legend-color" style="background-color: rgba(255, 0, 0, 0.2);"></span>
+            <span class="legend-text">Angle greater than 30 degrees</span>
+        </div>
+        <div class="legend-entry">
+            <span class="legend-color" style="background-color: rgba(255, 255, 0, 0.2);"></span>
+            <span class="legend-text">Angle between 20 and 30 degrees</span>
+        </div>
+        <div class="legend-entry">
+            <span class="legend-color" style="background-color: rgba(0, 255, 0, 0.2);"></span>
+            <span class="legend-text">Angle within 20 degrees</span>
+        </div>
+    </div>
+
+    <script>
+        const canvas = document.getElementById('barChart');
+        const ctx = canvas.getContext('2d');
+        let myBarChart;
+        <!-- let dygraphChart; -->
+
+        const container = document.getElementById('dygraph-container');
+        let data = [];
+        let lastTimestamp = 0;
+        //console.time('ExecutionTime');
+        const maxDataPoints = 40; // Limit to last 40 data points for example
+        
+        function updateDygraph(dataArray) {
+            fetch('float_value.txt')
+                .then(value => {
+                    
+                    const floatValue = parseFloat(dataArray);
+                    if (!isNaN(floatValue)) {
+                        const timestamp = new Date();
+                        if (data.length >= maxDataPoints) {
+                            data.shift(); // Remove the oldest data point
+                        }
+                        data.push([timestamp, floatValue]);
+
+                        // Efficiently update the Dygraph instance
+                        dygraphChart.updateOptions({ 'file': data });
+
+                    }
+                }).catch(error => console.error('Error fetching data:', error));
+        }
+        
+
+        let dygraphChart = new Dygraph(container, data, {
+            
+                labels: ['time', 'phase'],
+                xlabel: 'time',
+                ylabel: '',
+                colors: ['#1f77b4'], // Point color
+                drawPoints: true,    // Draw data points
+                strokeWidth: 2,      // Disable line
+                pointSize: 3,        // Set point size
+                showRoller: false,    // Show roller for zooming
+                valueRange: [-50, 50], // Set fixed y-axis range
+                drawGrid: true,      // Enable grid lines
+                gridLineColor: '#ccc', // Set grid line color
+                gridLineWidth: 1,     // Set grid line width
+                xAxisLabelWidth: 0, // Do not show x-axis labels
+                axisLabelFontSize: 20, // Optional: Sets the axis label font size to 0
+
+
+                axes: {
+                    x: {
+                        drawAxis: true, // Ensure the x-axis itself is still drawn
+                        drawGrid: true, // Draw grid lines for x-axis if needed
+                        axisLabelFormatter: function() {
+                            return ''; // Return an empty string for x-axis tick labels
+                        }
+                    },
+                    y: {
+                        drawAxis: true, // Draw y-axis
+                        drawGrid: true  // Draw grid lines for y-axis
+                    }
+                },
+
+                underlayCallback: function(canvas, area, g) {
+                    var topGreen = g.toDomYCoord(20);
+                    var bottomGreen = g.toDomYCoord(-20);
+                    var topYellow = g.toDomYCoord(30);
+                    var bottomYellow = g.toDomYCoord(-30);
+                    var bottomRed = g.toDomYCoord(-50);
+                    var topRed = g.toDomYCoord(50);
+        
+                    canvas.fillStyle = "rgba(255, 0, 0, 0.2)"; // Light red
+                    // Fill top red region
+                    canvas.fillRect(area.x, area.y, area.w, topYellow - area.y);
+                    // Fill bottom red region
+                    canvas.fillRect(area.x, bottomYellow, area.w, area.h - bottomYellow);
+        
+                    canvas.fillStyle = "rgba(255, 255, 0, 0.2)"; // Light yellow
+                    // Fill top yellow region
+                    canvas.fillRect(area.x, topYellow, area.w, topGreen - topYellow);
+                    // Fill bottom yellow region
+                    canvas.fillRect(area.x, bottomGreen, area.w, bottomYellow - bottomGreen);
+        
+                    canvas.fillStyle = "rgba(0, 255, 0, 0.2)"; // Light green
+                    // Fill green region
+                    canvas.fillRect(area.x, topGreen, area.w, bottomGreen - topGreen);
+                }
+            });
+
+        function drawBarChart(dataArray) {
+            const images = ['SLANT', 'RIGHT', 'LEFT', 'VERTICAL'];
+            const chartData = {
+                labels: images,
+                datasets: [{
+                    label: 'Data Points',
+                    backgroundColor: ['rgba(255, 99, 132, 0.5)', 'rgba(54, 162, 235, 0.5)', 'rgba(255, 206, 86, 0.5)', 'rgba(75, 192, 192, 0.5)'],
+                    borderColor: ['rgba(255, 99, 132, 1)', 'rgba(54, 162, 235, 1)', 'rgba(255, 206, 86, 1)', 'rgba(75, 192, 192, 1)'],
+                    borderWidth: 1,
+                    barThickness: 100,
+                    data: dataArray.slice(0, 4),
+                }]
+            };
+
+            if (myBarChart) {
+                myBarChart.destroy();
+            }
+
+            myBarChart = new Chart(ctx, {
+                type: 'bar',
+                data: chartData,
+                options: {
+                    scales: {
+                        y: {beginAtZero: true, 
+                            suggestedMax: 1}
+                        
+                    },
+                    animation: false
+                }
+            });
+        }
+
+        // Updated updateDygraph function to maintain a sliding window of data points
+        function updateDygraph(value) {
+            const timestamp = new Date();
+            if (data.length >= maxDataPoints) {
+                data.shift(); // Remove the oldest data point to maintain the sliding window
+            }
+            data.push([timestamp, value]); // Add new data point
+
+            // Efficiently update the Dygraph instance
+            dygraphChart.updateOptions({ 'file': data });
+        }
+
+        // Updated fetchDataAndUpdateCharts function to properly fetch data and update the charts
+        function fetchDataAndUpdateCharts() {
+            fetch('float_value.txt')  // Ensure this URL correctly points to your data source
+                .then(response => response.json())
+                .then(dataArray => {
+                    if (Array.isArray(dataArray) && dataArray.length == 6) {
+                        console.log("Data fetched successfully:", dataArray);
+                        drawBarChart(dataArray);
+                        updateDygraph(dataArray[4]*100);  // Ensure this index is correct based on your data structure
+                    } else {
+                        console.error('Invalid data format or length.');
+                    }
+                })
+                .catch(error => {
+                    console.error('Error fetching or processing data:', error);
+                });
+        }
+
+        fetchDataAndUpdateCharts();
+        setInterval(fetchDataAndUpdateCharts, 60);  // Update every 2 seconds
+    </script>
+</body>
+</html>
